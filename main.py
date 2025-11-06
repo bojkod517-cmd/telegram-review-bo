@@ -10,7 +10,7 @@ import threading
 TOKEN = os.getenv("BOT_TOKEN", "7974881474:AAHOzEfo2pOxDdznJK-ED9tGikw6Yl7jZDY")
 OWNER_ID = int(os.getenv("OWNER_ID", "1470389051"))
 DATA_FILE = "reviews_data.json"
-# ========================
+# =======================
 
 bot = telebot.TeleBot(TOKEN)
 app = Flask(__name__)
@@ -37,42 +37,44 @@ def ensure_admin_exists(tag_raw: str):
     key = normalize_tag(tag_raw)
     if key not in reviews_db["admins"]:
         reviews_db["admins"][key] = {"display": tag_raw.strip(), "reviews": []}
+        save_db()
     else:
         reviews_db["admins"][key]["display"] = tag_raw.strip()
-    save_db()
+        save_db()
     return key
 
 def is_owner(uid):
     return str(uid) == str(OWNER_ID)
 
-# ====== Команда /start ======
+# ====== /start ======
 @bot.message_handler(commands=['start'])
 def start_cmd(message):
     kb = types.ReplyKeyboardMarkup(resize_keyboard=True)
-    kb.add("⭐ Оставить отзыв", "📊 Посмотреть рейтинг")
+    kb.add("⭐ Оставить отзыв", "📊 Посмотреть репутацию")
     if is_owner(message.from_user.id):
         kb.add("🛠️ Админ-меню")
-    bot.send_message(
-        message.chat.id,
-        "👋 Привет! Я бот для отзывов.\n\n"
-        "— Нажми «⭐ Оставить отзыв», чтобы оценить администратора.\n"
-        "— Нажми «📊 Посмотреть рейтинг», чтобы увидеть оценки и отзывы.",
-        reply_markup=kb
-    )
+    bot.send_message(message.chat.id,
+                     "👋 Привет! Я бот для отзывов.\n\n"
+                     "— Нажми «⭐ Оставить отзыв», чтобы оценить администратора.\n"
+                     "— Нажми «📊 Посмотреть репутацию», чтобы увидеть оценки и отзывы.",
+                     reply_markup=kb)
 
 # ====== Оставить отзыв ======
 @bot.message_handler(func=lambda m: m.text == "⭐ Оставить отзыв")
 def rate_start(message):
-    bot.send_message(message.chat.id, "Введи хэштег администратора (например, #Шерлок):")
+    bot.send_message(message.chat.id, "Пожалуйста, введите хэштег администратора, начиная с символа #.\nНапример: #Шерлок")
     bot.register_next_step_handler(message, rate_admin)
 
 def rate_admin(message):
     tag = message.text.strip()
+    if not tag.startswith("#"):
+        bot.send_message(message.chat.id, "⚠️ Пожалуйста, введите хэштег, начиная с символа #.\nНапример: #Шерлок")
+        return
     key = ensure_admin_exists(tag)
     kb = types.InlineKeyboardMarkup(row_width=5)
     for i in range(1, 6):
         kb.add(types.InlineKeyboardButton("⭐" * i, callback_data=f"rate|{key}|{i}"))
-    bot.send_message(message.chat.id, f"Ты выбрал {tag}. Выбери количество звёзд:", reply_markup=kb)
+    bot.send_message(message.chat.id, f"Вы выбрали {tag}. Выберите количество звёзд:", reply_markup=kb)
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("rate|"))
 def rate_callback(call):
@@ -81,7 +83,7 @@ def rate_callback(call):
     user_id = str(call.from_user.id)
     reviews_db["pending"][user_id] = {"key": key, "stars": stars}
     save_db()
-    bot.send_message(call.message.chat.id, "Теперь напиши текст отзыва или '-' чтобы пропустить:")
+    bot.send_message(call.message.chat.id, "Теперь напишите текст отзыва или «-» чтобы пропустить:")
     bot.answer_callback_query(call.id)
 
 @bot.message_handler(func=lambda m: str(m.from_user.id) in reviews_db.get("pending", {}))
@@ -100,34 +102,26 @@ def save_review(message):
     save_db()
     bot.send_message(message.chat.id, f"✅ Отзыв сохранён! {'⭐'*stars}")
 
-# ====== Посмотреть рейтинг ======
-@bot.message_handler(func=lambda m: m.text == "📊 Посмотреть рейтинг")
+# ====== Посмотреть репутацию ======
+@bot.message_handler(func=lambda m: m.text == "📊 Посмотреть репутацию")
 def show_ratings(message):
     if not reviews_db["admins"]:
-        bot.send_message(message.chat.id, "Пока нет отзывов.")
+        bot.send_message(message.chat.id, "Пока что нет отзывов.")
         return
-
-    text = "📊 *Рейтинги и отзывы:*\n\n"
+    txt = ""
     for k, info in reviews_db["admins"].items():
         reviews = info["reviews"]
         if not reviews:
             continue
-
-        # Средняя оценка
         avg = round(sum(r["stars"] for r in reviews) / len(reviews), 2)
-        text += f"👤 *{info['display']}* — {'⭐' * int(avg)} ({avg})\n"
-
-        # Все отзывы этого админа
-        for r in reviews:
-            stars = "⭐" * r["stars"]
-            user = r["user"]
-            comment = r["text"] or "(без комментария)"
-            date = r["time"]
-            text += f"  — {stars} от {user} ({date}): _{comment}_\n"
-
-        text += "\n──────────────────────\n"
-
-    bot.send_message(message.chat.id, text or "Пока нет отзывов.", parse_mode="Markdown")
+        txt += f"{info['display']} — {'⭐'*int(avg)} ({avg})\n"
+        for r in reviews:  # Показываем ВСЕ отзывы
+            user = r['user']
+            stars = '⭐' * r['stars']
+            text = f" — {r['text']}" if r['text'] else ""
+            txt += f"   • {user}: {stars}{text}\n"
+        txt += "\n"
+    bot.send_message(message.chat.id, txt or "Пока нет отзывов.")
 
 # ====== Админ-меню ======
 @bot.message_handler(func=lambda m: m.text == "🛠️ Админ-меню")
@@ -138,7 +132,7 @@ def admin_menu(message):
     kb = types.InlineKeyboardMarkup()
     for k, info in reviews_db["admins"].items():
         kb.add(types.InlineKeyboardButton(info["display"], callback_data=f"adm|{k}"))
-    bot.send_message(message.chat.id, "Выбери администратора:", reply_markup=kb)
+    bot.send_message(message.chat.id, "Выберите администратора:", reply_markup=kb)
 
 @bot.callback_query_handler(func=lambda c: c.data.startswith("adm|") or c.data.startswith("delrev|"))
 def admin_actions(call):
