@@ -10,7 +10,7 @@ OWNER_ID = 1470389051  # твой ID
 bot = telebot.TeleBot(BOT_TOKEN)
 
 # ====== Flask для Render ======
-app = Flask(name)
+app = Flask(__name__)
 
 @app.route("/")
 def home():
