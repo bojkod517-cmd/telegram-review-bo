@@ -101,6 +101,6 @@ def admin_actions(call):
 def run_bot():
     bot.infinity_polling(timeout=60, long_polling_timeout=60)
 
-if name == "main":
+if __name__ == "__main__":
     threading.Thread(target=run_bot).start()
     app.run(host="0.0.0.0", port=8080)
