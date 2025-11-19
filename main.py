@@ -9,7 +9,7 @@ OWNER_ID = int(os.environ.get("1470389051", 0))
 
 bot = telebot.TeleBot(BOT_TOKEN)
 
-app = Flask(name)
+app = Flask(__name__)
 
 # ====== База данных отзывов ======
 reviews_db = {
@@ -107,7 +107,7 @@ def home():
     return "Бот работает ✅"
 
 # ====== Установка webhook при старте ======
-if name == "main":
+if __name__ == "__main__":
     bot.remove_webhook()
     bot.set_webhook(url=f"https://telegram-review-bo.onrender.com/{BOT_TOKEN}")
     app.run(host="0.0.0.0", port=8080)
