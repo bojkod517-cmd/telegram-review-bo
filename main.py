@@ -4,7 +4,7 @@ import telebot
 from telebot import types
 
 # ====== Настройки ======
-BOT_TOKEN = "7974881474:AAHOzEfo2pOxDdznJK-ED9tGikw6Yl7jZDY"
+BOT_TOKEN = "8009524027:AAHTRgwiKnUi9AAh1_LTkekGZ-mRvNzH7dY"
 OWNER_ID = 1470389051  # твой ID
 
 bot = telebot.TeleBot(BOT_TOKEN)
