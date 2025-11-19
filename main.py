@@ -1,26 +1,30 @@
-# main.py
-from telebot import TeleBot, types
 import threading
+from flask import Flask
+import telebot
+from telebot import types
 
-# ====== ТВОЇ ДАНІ ======
+# ====== Настройки ======
 BOT_TOKEN = "7974881474:AAHOzEfo2pOxDdznJK-ED9tGikw6Yl7jZDY"
 OWNER_IDS = [1470389051]
-# ======================
 
-bot = TeleBot(BOT_TOKEN)
+bot = telebot.TeleBot(BOT_TOKEN)
+app = Flask(name)
 
+# ====== Простейшая база отзывов ======
 reviews_db = {
     "admins": {
-        # приклад структури адмінів
-        "admin1": {"display": "#Шерлок", "reviews": []}
+        # Пример: "admin_key": {"display": "Имя Админа", "reviews": []}
     }
 }
 
+# ====== Функции ======
 def is_owner(user_id):
     return user_id in OWNER_IDS
 
-# ====== Команди бота ======
+def save_db():
+    pass  # сюда можно добавить сохранение в файл, если нужно
 
+# ====== Команды бота ======
 @bot.message_handler(func=lambda m: m.text == "📊 Посмотреть репутацию")
 def show_ratings(message):
     if not reviews_db["admins"]:
@@ -66,7 +70,7 @@ def admin_actions(call):
             return
         kb = types.InlineKeyboardMarkup()
         text = [f"📋 Отзывы для {info['display']}:"]
-        for i, r in enumerate(info["reviews"]):
+        for i, r in enumerate(info['reviews']):
             line = f"{i+1}. {r['user']} — {'⭐️'*r['stars']}"
             if r['text']:
                 line += f" — {r['text']}"
@@ -79,6 +83,7 @@ def admin_actions(call):
         reviews = reviews_db["admins"].get(key, {}).get("reviews", [])
         if 0 <= idx < len(reviews):
             rem = reviews.pop(idx)
+            save_db()
             bot.send_message(call.message.chat.id, f"✅ Удалено: {rem['user']} ({'⭐️'*rem['stars']})")
         else:
             bot.send_message(call.message.chat.id, "Отзыв не найден.")
@@ -90,3 +95,4 @@ def run_bot():
 
 if name == "main":
     threading.Thread(target=run_bot).start()
+    app.run(host="0.0.0.0", port=8080)
