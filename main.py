@@ -5,26 +5,32 @@ from telebot import types
 
 # ====== Настройки ======
 BOT_TOKEN = "7974881474:AAHOzEfo2pOxDdznJK-ED9tGikw6Yl7jZDY"
-OWNER_IDS = [1470389051]
+OWNER_ID = 1470389051  # твой ID
 
 bot = telebot.TeleBot(BOT_TOKEN)
+
+# ====== Flask для Render ======
 app = Flask(name)
 
-# ====== Простейшая база отзывов ======
+@app.route("/")
+def home():
+    return "Бот работает ✅"
+
+# ====== База данных отзывов ======
 reviews_db = {
     "admins": {
-        # Пример: "admin_key": {"display": "Имя Админа", "reviews": []}
+        "sherlock": {  # ключ админа
+            "display": "#Шерлок",  # отображаемый хэштег
+            "reviews": []           # сюда будут добавляться отзывы
+        }
     }
 }
 
-# ====== Функции ======
+# ====== Проверка владельца ======
 def is_owner(user_id):
-    return user_id in OWNER_IDS
+    return user_id == OWNER_ID
 
-def save_db():
-    pass  # сюда можно добавить сохранение в файл, если нужно
-
-# ====== Команды бота ======
+# ====== Команда просмотра рейтингов ======
 @bot.message_handler(func=lambda m: m.text == "📊 Посмотреть репутацию")
 def show_ratings(message):
     if not reviews_db["admins"]:
@@ -70,26 +76,28 @@ def admin_actions(call):
             return
         kb = types.InlineKeyboardMarkup()
         text = [f"📋 Отзывы для {info['display']}:"]
-        for i, r in enumerate(info['reviews']):
+
+        for i, r in enumerate(info["reviews"]):
             line = f"{i+1}. {r['user']} — {'⭐️'*r['stars']}"
             if r['text']:
                 line += f" — {r['text']}"
             text.append(line)
             kb.add(types.InlineKeyboardButton(f"🗑 Удалить #{i+1}", callback_data=f"delrev|{key}|{i}"))
+
         bot.send_message(call.message.chat.id, "\n".join(text), reply_markup=kb)
+
     elif data[0] == "delrev":
         _, key, idx = data
         idx = int(idx)
         reviews = reviews_db["admins"].get(key, {}).get("reviews", [])
         if 0 <= idx < len(reviews):
             rem = reviews.pop(idx)
-            save_db()
             bot.send_message(call.message.chat.id, f"✅ Удалено: {rem['user']} ({'⭐️'*rem['stars']})")
         else:
             bot.send_message(call.message.chat.id, "Отзыв не найден.")
         bot.answer_callback_query(call.id)
 
-# ====== Запуск ======
+# ====== Запуск бота ======
 def run_bot():
     bot.infinity_polling(timeout=60, long_polling_timeout=60)
 
